@@ -12,6 +12,7 @@ load_dotenv()
 
 app = FastAPI()
 
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -20,11 +21,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY not found in .env file")
+# 🔥 Multiple API Keys (Add as many as you want)
+API_KEYS = [
+    os.getenv("GEMINI_API_KEY_1"),
+    os.getenv("GEMINI_API_KEY_2"),
+    os.getenv("GEMINI_API_KEY_3"),
+    os.getenv("GEMINI_API_KEY_4"),
+    os.getenv("GEMINI_API_KEY_5"),
+]
 
-client = genai.Client(api_key=GEMINI_API_KEY)
+# Remove any empty/None keys
+API_KEYS = [key for key in API_KEYS if key]
+
+if not API_KEYS:
+    raise ValueError("No Gemini API keys found! Please set GEMINI_API_KEY_1 to GEMINI_API_KEY_5")
 
 def clean_json_response(text):
     match = re.search(r'```(?:json)?\s*(\{.*\})\s*```', text, re.DOTALL)
@@ -77,44 +87,79 @@ async def parse_cv(file: UploadFile = File(...)):
 
         image_part = types.Part.from_bytes(data=contents, mime_type=mime_type)
 
-        # 🔥 Use models that are most likely available
+        # 🔥 All Available Models (Add as many as possible)
         model_names = [
-            'models/gemini-2.0-flash',
+            # Gemini 3.5 Series
+            'models/gemini-3.5-flash-lite',
+            'models/gemini-3.5-flash',
+            # Gemini 2.5 Series
             'models/gemini-2.5-flash',
+            'models/gemini-2.5-pro',
+            'models/gemini-2.5-flash-lite',
+            # Gemini 2.0 Series
+            'models/gemini-2.0-flash',
+            'models/gemini-2.0-flash-001',
+            'models/gemini-2.0-flash-lite',
+            'models/gemini-2.0-flash-lite-001',
+            # Gemini 1.5 Series
             'models/gemini-1.5-flash',
+            'models/gemini-1.5-pro',
+            # Latest aliases
             'models/gemini-flash-latest',
-            'models/gemini-3.5-flash'
+            'models/gemini-pro-latest',
+            'models/gemini-flash-lite-latest',
+            # Gemini 3.1 Series (if available)
+            'models/gemini-3.1-flash-lite-preview',
+            'models/gemini-3.1-flash-lite',
+            # Gemini 2.5 Flash Image
+            'models/gemini-2.5-flash-image',
         ]
 
-        # 🔥 Retry logic with exponential backoff
-        max_retries = 5
+        # 🔥 Try all combinations: Key × Model
+        max_retries = 3
         base_delay = 2
 
-        for attempt in range(max_retries):
-            for model_name in model_names:
-                try:
-                    response = client.models.generate_content(
-                        model=model_name,
-                        contents=[prompt, image_part]
-                    )
-                    print(f"✅ Successfully used model: {model_name}")
-                    parsed = json.loads(clean_json_response(response.text))
-                    parsed['photo_base64'] = None
-                    return parsed
-                except Exception as e:
-                    # silently try next model
-                    pass
+        last_error = None
 
-            # All models failed this attempt
-            if attempt < max_retries - 1:
-                delay = base_delay * (attempt + 1)
-                print(f"🔄 Retry {attempt + 1}/{max_retries} in {delay}s...")
-                time.sleep(delay)
+        for key_index, api_key in enumerate(API_KEYS):
+            try:
+                # Create a new client with this API key
+                client = genai.Client(api_key=api_key)
+                print(f"🔑 Trying API Key #{key_index + 1}...")
 
-        # After all retries, raise a clear error
+                for model_name in model_names:
+                    try:
+                        response = client.models.generate_content(
+                            model=model_name,
+                            contents=[prompt, image_part]
+                        )
+                        print(f"✅ SUCCESS! Key #{key_index + 1} + Model: {model_name}")
+                        parsed = json.loads(clean_json_response(response.text))
+                        parsed['photo_base64'] = None
+                        return parsed
+                    except Exception as e:
+                        error_msg = str(e)
+                        if '503' in error_msg or 'UNAVAILABLE' in error_msg:
+                            print(f"⚠️ Model {model_name} busy with Key #{key_index + 1}")
+                            continue
+                        elif '429' in error_msg or 'RESOURCE_EXHAUSTED' in error_msg:
+                            print(f"⚠️ Quota exhausted for Key #{key_index + 1} with {model_name}")
+                            continue
+                        elif '401' in error_msg or 'UNAUTHENTICATED' in error_msg:
+                            print(f"❌ Invalid Key #{key_index + 1}, skipping...")
+                            break  # Skip this key entirely
+                        else:
+                            print(f"⚠️ Error with Key #{key_index + 1} + {model_name}: {error_msg[:50]}...")
+                            continue
+
+            except Exception as e:
+                print(f"❌ Failed to create client with Key #{key_index + 1}: {str(e)}")
+                continue
+
+        # If all keys and models fail
         raise HTTPException(
             status_code=503,
-            detail="All Gemini models are currently unavailable. Please try again in 5-10 minutes."
+            detail="All Gemini models and API keys are currently unavailable. Please try again in 5-10 minutes."
         )
 
     except json.JSONDecodeError as e:
@@ -124,13 +169,19 @@ async def parse_cv(file: UploadFile = File(...)):
 
 @app.get("/")
 async def root():
-    return {"message": "CV Parser API running with enhanced retry logic!"}
+    return {"message": "CV Parser API with Multiple API Keys + All Models!"}
 
 @app.get("/list-models")
 async def list_models():
     try:
-        models = client.models.list()
-        # Simply return all model names (no filtering needed)
-        return {"available": [m.name for m in models]}
+        # Use the first valid key to list models
+        for key in API_KEYS:
+            try:
+                client = genai.Client(api_key=key)
+                models = client.models.list()
+                return {"available": [m.name for m in models]}
+            except:
+                continue
+        return {"error": "No valid API key found"}
     except Exception as e:
         return {"error": str(e)}
