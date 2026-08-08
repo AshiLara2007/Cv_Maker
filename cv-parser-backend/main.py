@@ -12,7 +12,6 @@ load_dotenv()
 
 app = FastAPI()
 
-# CORS Configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,14 +20,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Gemini Configuration
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if not GEMINI_API_KEY:
     raise ValueError("GEMINI_API_KEY not found in .env file")
 
 client = genai.Client(api_key=GEMINI_API_KEY)
-
-# ---------- Helper Functions ----------
 
 def clean_json_response(text):
     match = re.search(r'```(?:json)?\s*(\{.*\})\s*```', text, re.DOTALL)
@@ -49,8 +45,6 @@ def get_mime_type(filename: str) -> str:
         'gif': 'image/gif'
     }
     return mime_map.get(ext, 'image/jpeg')
-
-# ---------- API Endpoints ----------
 
 @app.post("/parse-cv")
 async def parse_cv(file: UploadFile = File(...)):
@@ -79,28 +73,24 @@ async def parse_cv(file: UploadFile = File(...)):
         10. "worker_type" - "First Time" or "Experienced"
 
         Return ONLY valid JSON. No other text.
-        Example:
-        {"full_name":"ASMAN AHAMED SABDEEN","date_of_birth":"2004-11-23","gender":"MALE","marital_status":"SINGLE","job_title":"DRIVER","nationality":"SRI LANKAN","religion":"MUSLIM","salary":1500,"years_experience":0,"worker_type":"First Time"}
         """
 
         image_part = types.Part.from_bytes(data=contents, mime_type=mime_type)
 
-        # Models list
+        # 🔥 Use models that are most likely available
         model_names = [
-            'models/gemini-2.5-flash',
-            'models/gemini-3.5-flash',
             'models/gemini-2.0-flash',
-            'models/gemini-flash-latest'
+            'models/gemini-2.5-flash',
+            'models/gemini-1.5-flash',
+            'models/gemini-flash-latest',
+            'models/gemini-3.5-flash'
         ]
 
-        # 🔥 Retry logic
-        max_retries = 3
-        retry_delay = 5  # seconds
+        # 🔥 Retry logic with exponential backoff
+        max_retries = 5
+        base_delay = 2
 
         for attempt in range(max_retries):
-            response = None
-            last_error = None
-
             for model_name in model_names:
                 try:
                     response = client.models.generate_content(
@@ -108,57 +98,39 @@ async def parse_cv(file: UploadFile = File(...)):
                         contents=[prompt, image_part]
                     )
                     print(f"✅ Successfully used model: {model_name}")
-                    break
+                    parsed = json.loads(clean_json_response(response.text))
+                    parsed['photo_base64'] = None
+                    return parsed
                 except Exception as e:
-                    last_error = e
-                    # If it's a 503 (unavailable), wait and retry
-                    if '503' in str(e) or 'UNAVAILABLE' in str(e):
-                        print(f"⚠️ Model {model_name} unavailable (attempt {attempt + 1}/{max_retries})")
-                        continue
-                    # Otherwise try next model
-                    continue
+                    # silently try next model
+                    pass
 
-            if response is not None:
-                break  # Success
-
-            # If we got here, all models failed for this attempt
+            # All models failed this attempt
             if attempt < max_retries - 1:
-                print(f"🔄 Retrying in {retry_delay} seconds... (attempt {attempt + 1}/{max_retries})")
-                time.sleep(retry_delay)
+                delay = base_delay * (attempt + 1)
+                print(f"🔄 Retry {attempt + 1}/{max_retries} in {delay}s...")
+                time.sleep(delay)
 
-        if response is None:
-            raise HTTPException(
-                status_code=503,
-                detail="All models are currently unavailable. Please try again in a few minutes."
-            )
-
-        cleaned = clean_json_response(response.text)
-        parsed = json.loads(cleaned)
-
-        parsed['photo_base64'] = None
-
-        return parsed
+        # After all retries, raise a clear error
+        raise HTTPException(
+            status_code=503,
+            detail="All Gemini models are currently unavailable. Please try again in 5-10 minutes."
+        )
 
     except json.JSONDecodeError as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"JSON parse error: {str(e)}. Raw: {response.text}"
-        )
+        raise HTTPException(status_code=500, detail=f"JSON parse error: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/")
 async def root():
-    return {"message": "CV Parser API running with retry logic!"}
+    return {"message": "CV Parser API running with enhanced retry logic!"}
 
 @app.get("/list-models")
 async def list_models():
     try:
         models = client.models.list()
-        available = [
-            m.name for m in models
-            if 'generateContent' in m.supported_generation_methods
-        ]
-        return {"available": available}
+        # Simply return all model names (no filtering needed)
+        return {"available": [m.name for m in models]}
     except Exception as e:
         return {"error": str(e)}
