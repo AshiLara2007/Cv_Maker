@@ -87,31 +87,32 @@ async def parse_cv(file: UploadFile = File(...)):
 
         image_part = types.Part.from_bytes(data=contents, mime_type=mime_type)
 
-        # 🔥 All Available Models (Add as many as possible)
+        # 🔥 UPDATED: Models prioritized by HIGH RPD (Requests Per Day)
         model_names = [
-            # Gemini 3.5 Series
-            'models/gemini-3.5-flash-lite',
-            'models/gemini-3.5-flash',
-            # Gemini 2.5 Series
-            'models/gemini-2.5-flash',
-            'models/gemini-2.5-pro',
-            'models/gemini-2.5-flash-lite',
-            # Gemini 2.0 Series
-            'models/gemini-2.0-flash',
-            'models/gemini-2.0-flash-001',
-            'models/gemini-2.0-flash-lite',
-            'models/gemini-2.0-flash-lite-001',
-            # Gemini 1.5 Series
-            'models/gemini-1.5-flash',
-            'models/gemini-1.5-pro',
-            # Latest aliases
+            # 🔥 HIGHEST RPD (1,500) - Try these FIRST
+            'models/gemini-2.0-flash-lite',     # 1,500 RPD ⭐ Best
+            'models/gemini-1.5-flash',          # 1,500 RPD ⭐ Best
+            
+            # 🔥 GOOD RPD (1,000)
+            'models/gemini-2.5-flash-lite',     # 1,000 RPD ⭐ Good
+            
+            # 🔥 MEDIUM RPD (250)
+            'models/gemini-2.5-flash',          # 250 RPD ⭐ Good
+            
+            # 🔥 LOW RPD (20) - Only as fallback
+            'models/gemini-3.5-flash-lite',     # 20 RPD
+            'models/gemini-3.5-flash',          # 20 RPD
+            'models/gemini-2.0-flash',          # 20 RPD
+            'models/gemini-2.5-pro',            # 20 RPD
+            'models/gemini-1.5-pro',            # 20 RPD
+            
+            # 🔥 LATEST ALIASES
             'models/gemini-flash-latest',
-            'models/gemini-pro-latest',
             'models/gemini-flash-lite-latest',
-            # Gemini 3.1 Series (if available)
+            
+            # 🔥 PREVIEW MODELS (if available)
             'models/gemini-3.1-flash-lite-preview',
             'models/gemini-3.1-flash-lite',
-            # Gemini 2.5 Flash Image
             'models/gemini-2.5-flash-image',
         ]
 
