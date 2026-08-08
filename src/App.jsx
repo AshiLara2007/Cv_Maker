@@ -17,7 +17,7 @@ function App() {
   const [errorMessage, setErrorMessage] = useState('');
   const [calculatedAge, setCalculatedAge] = useState(null);
 
-  // Form data
+  // Form data (UI fields)
   const [formData, setFormData] = useState({
     full_name: '',
     date_of_birth: '',
@@ -86,16 +86,18 @@ function App() {
     }
   };
 
-  // ---------- AI Parser Call ----------
+  // ---------- AI Parser Call (Backend) ----------
   const callAIParser = async (file) => {
     setIsParsing(true);
     setErrorMessage('');
-    
+
     const formData = new FormData();
     formData.append('file', file);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/parse-cv`, {
+      // 🔥 Use environment variable for backend URL
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/parse-cv`, {
         method: 'POST',
         body: formData,
       });
@@ -108,14 +110,17 @@ function App() {
       const data = await response.json();
       console.log('AI Parsed Data:', data);
 
+      // Calculate age from parsed DOB
       let age = null;
       if (data.date_of_birth) {
         age = calculateAge(data.date_of_birth);
         setCalculatedAge(age);
       }
 
+      // Map worker type
       const mappedWorkerType = mapWorkerType(data.worker_type);
 
+      // Auto-fill form
       setFormData({
         full_name: data.full_name || '',
         date_of_birth: data.date_of_birth || '',
@@ -130,7 +135,7 @@ function App() {
         worker_type: mappedWorkerType
       });
 
-      // 🆕 Auto Photo Extract (Base64) - if available
+      // Auto-extract photo from Base64 (if available)
       if (data.photo_base64) {
         try {
           const byteCharacters = atob(data.photo_base64);
@@ -159,15 +164,16 @@ function App() {
     }
   };
 
+  // ---------- Drag & Drop for CV ----------
   const onDrop = useCallback((acceptedFiles) => {
     const file = acceptedFiles[0];
     if (!file) return;
-    
+
     setCvFile(file);
     setIsUploading(true);
     setUploadProgress(0);
     setErrorMessage('');
-    
+
     const interval = setInterval(() => {
       setUploadProgress(prev => {
         if (prev >= 100) {
@@ -181,11 +187,13 @@ function App() {
     }, 150);
   }, []);
 
+  // ---------- Form Input Change ----------
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  // ---------- Submit to Supabase (talents table) ----------
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -195,6 +203,7 @@ function App() {
       let cvUrl = null;
       let photoUrl = null;
 
+      // 1. Upload CV to Supabase Storage (zod_manpower bucket → cvs folder)
       if (cvFile) {
         const fileExt = cvFile.name.split('.').pop();
         const fileName = `${Date.now()}_cv.${fileExt}`;
@@ -212,6 +221,7 @@ function App() {
         cvUrl = urlData.publicUrl;
       }
 
+      // 2. Upload Profile Photo to Supabase Storage (zod_manpower bucket → photos folder)
       if (profilePhotoFile) {
         const fileExt = profilePhotoFile.name.split('.').pop();
         const fileName = `${Date.now()}_photo.${fileExt}`;
@@ -229,6 +239,7 @@ function App() {
         photoUrl = urlData.publicUrl;
       }
 
+      // 3. Insert into 'talents' table
       const ref = generateRef();
 
       const { error: insertError } = await supabase
@@ -266,6 +277,7 @@ function App() {
     }
   };
 
+  // ---------- Reset Form ----------
   const handleReset = () => {
     setFormData({
       full_name: '',
@@ -289,26 +301,27 @@ function App() {
     setCalculatedAge(null);
   };
 
+  // ---------- Dropzone config ----------
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
       'image/*': ['.jpeg', '.jpg', '.png', '.webp']
     },
     maxFiles: 1,
-    maxSize: 5242880
+    maxSize: 5242880 // 5MB
   });
 
+  // ---------- Render ----------
   return (
     <div className="app-container">
-      {/* 🆕 Updated Header with Logo */}
       <header className="app-header">
         <div className="header-content">
           <div className="header-logo-wrapper">
-            <img 
-              src="https://www.zodmanpower.info/logo/logo.jpeg" 
-              alt="ZOD Manpower Logo" 
-              className="header-logo" 
-              onError={(e) => { e.target.style.display = 'none'; }} 
+            <img
+              src="https://www.zodmanpower.info/logo/logo.jpeg"
+              alt="ZOD Manpower Logo"
+              className="header-logo"
+              onError={(e) => { e.target.style.display = 'none'; }}
             />
             <div>
               <h1>ZOD <span>MANPOWER</span></h1>
@@ -322,12 +335,12 @@ function App() {
       <main className="main-content">
         {/* Upload Section */}
         <section className="upload-section">
-          <div 
-            {...getRootProps()} 
+          <div
+            {...getRootProps()}
             className={`dropzone ${isDragActive ? 'active' : ''} ${cvFile ? 'has-file' : ''}`}
           >
             <input {...getInputProps()} />
-            
+
             {!cvFile ? (
               <div className="dropzone-content">
                 <div className="dropzone-icon">📄</div>
@@ -357,7 +370,7 @@ function App() {
               </div>
             )}
           </div>
-          
+
           {cvFile && !isUploading && !isParsing && (
             <button className="btn-reset" onClick={() => { setCvFile(null); }} type="button">
               ✕ Remove CV
@@ -365,7 +378,7 @@ function App() {
           )}
         </section>
 
-        {/* Profile Photo Upload (Manual) */}
+        {/* Profile Photo Upload */}
         <section className="photo-upload-section">
           <div className="photo-upload-container">
             <div>
@@ -386,8 +399,8 @@ function App() {
         <section className="form-section">
           <h2>Candidate Information</h2>
           <p className="form-hint">
-            {isParsing ? '🔍 AI is extracting data...' : 
-             formData.full_name ? '✅ Data extracted! You can edit any field below before submitting.' : 
+            {isParsing ? '🔍 AI is extracting data...' :
+             formData.full_name ? '✅ Data extracted! You can edit any field below before submitting.' :
              'Upload a CV to auto-fill the form'}
           </p>
 
@@ -498,7 +511,7 @@ function App() {
         </section>
 
         <footer className="app-footer">
-          <p>© 2026 ZOD Manpower Recruitment · Developed by Lara Williams</p>
+          <p>© 2026 ZOD Manpower Recruitment · Powered by AI & Supabase</p>
         </footer>
       </main>
     </div>
