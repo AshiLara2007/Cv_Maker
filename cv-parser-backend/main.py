@@ -2,20 +2,11 @@ import os
 import json
 import re
 import base64
-import numpy as np
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
-
-# Optional OpenCV import with fallback
-try:
-    import cv2
-    OPENCV_AVAILABLE = True
-except ImportError:
-    OPENCV_AVAILABLE = False
-    cv2 = None
 
 load_dotenv()
 
@@ -59,10 +50,6 @@ def get_mime_type(filename: str) -> str:
     }
     return mime_map.get(ext, 'image/jpeg')
 
-def extract_face_base64(image_bytes: bytes) -> str | None:
-    """Face detection disabled - always returns None."""
-    return None
-
 # ---------- API Endpoints ----------
 
 @app.post("/parse-cv")
@@ -101,7 +88,7 @@ async def parse_cv(file: UploadFile = File(...)):
 
         image_part = types.Part.from_bytes(data=contents, mime_type=mime_type)
 
-        # 🔥 Models list (tries in order, falls back to working one)
+        # Models list (tries in order, falls back to working one)
         model_names = [
             'models/gemini-3.5-flash',
             'models/gemini-2.0-flash',
@@ -121,7 +108,6 @@ async def parse_cv(file: UploadFile = File(...)):
                 break
             except Exception as e:
                 last_error = e
-                # Silently continue to next model (no error logs)
                 continue
 
         if response is None:
@@ -133,7 +119,6 @@ async def parse_cv(file: UploadFile = File(...)):
         cleaned = clean_json_response(response.text)
         parsed = json.loads(cleaned)
 
-        # Append extracted photo to response (always None)
         parsed['photo_base64'] = photo_base64
 
         return parsed
