@@ -4,7 +4,18 @@ import { useDropzone } from 'react-dropzone';
 import { supabase } from './lib/supabaseClient';
 import './App.css';
 
-// COUNTRY OPTIONS (Dropdown list)
+// ---------- Job Options (Dropdown) ----------
+const JOB_OPTIONS = [
+  'Housemaid',
+  'Driver',
+  'Nurse',
+  'Cook',
+  'Domestic Worker',
+  'Baby Sitter',
+  'Teacher'
+];
+
+// ---------- Country Options (Dropdown) ----------
 const COUNTRY_OPTIONS = [
   'Indonesia',
   'Sri Lanka',
@@ -14,17 +25,6 @@ const COUNTRY_OPTIONS = [
   'Ethiopia',
   'Kenya',
   'Uganda'
-];
-
-// JOB OPTIONS (Dropdown list)
-const JOB_OPTIONS = [
-  'Housemaid',
-  'Driver',
-  'Nurse',
-  'Cook',
-  'Domestic Worker',
-  'Baby Sitter',
-  'Teacher'
 ];
 
 function App() {
@@ -40,7 +40,7 @@ function App() {
   const [errorMessage, setErrorMessage] = useState('');
   const [calculatedAge, setCalculatedAge] = useState(null);
 
-  // Form data
+  // Form Data
   const [formData, setFormData] = useState({
     full_name: '',
     date_of_birth: '',
@@ -56,6 +56,7 @@ function App() {
   });
 
   // ---------- Helper Functions ----------
+
   const calculateAge = (dob) => {
     if (!dob) return null;
     const birthDate = new Date(dob);
@@ -68,6 +69,36 @@ function App() {
     return age;
   };
 
+  // 🔥 Map AI country to dropdown value
+  const mapCountry = (aiCountry) => {
+    if (!aiCountry) return '';
+    const normalized = aiCountry.trim().toLowerCase();
+    for (const country of COUNTRY_OPTIONS) {
+      if (country.toLowerCase() === normalized) {
+        return country;
+      }
+      if (normalized.includes(country.toLowerCase()) || country.toLowerCase().includes(normalized)) {
+        return country;
+      }
+    }
+    return '';
+  };
+
+  // 🔥 Map AI job to dropdown value
+  const mapJob = (aiJob) => {
+    if (!aiJob) return '';
+    const normalized = aiJob.trim().toLowerCase();
+    for (const job of JOB_OPTIONS) {
+      if (job.toLowerCase() === normalized) {
+        return job;
+      }
+      if (normalized.includes(job.toLowerCase()) || job.toLowerCase().includes(normalized)) {
+        return job;
+      }
+    }
+    return '';
+  };
+
   const mapWorkerType = (aiType) => {
     if (!aiType) return '';
     const lower = aiType.toLowerCase();
@@ -75,74 +106,6 @@ function App() {
       return 'Returned Housemaids';
     }
     return 'Recruitment Workers';
-  };
-
-  // 🔥 NEW: Map AI country to exact dropdown option
-  const mapCountry = (aiCountry) => {
-    if (!aiCountry) return '';
-    const country = aiCountry.toLowerCase().trim();
-    
-    // Try exact match first
-    for (const c of COUNTRY_OPTIONS) {
-      if (c.toLowerCase() === country) return c;
-    }
-    
-    // Try partial match (e.g., "SRI LANKAN" → "Sri Lanka")
-    for (const c of COUNTRY_OPTIONS) {
-      const cLower = c.toLowerCase();
-      if (country.includes(cLower) || cLower.includes(country)) {
-        return c;
-      }
-    }
-    
-    // Try common variations
-    const mappings = {
-      'indonesian': 'Indonesia',
-      'sri lankan': 'Sri Lanka',
-      'philippine': 'Philippines',
-      'bangladeshi': 'Bangladesh',
-      'indian': 'India',
-      'ethiopian': 'Ethiopia',
-      'kenyan': 'Kenya',
-      'ugandan': 'Uganda'
-    };
-    
-    return mappings[country] || '';
-  };
-
-  // 🔥 NEW: Map AI job to exact dropdown option
-  const mapJob = (aiJob) => {
-    if (!aiJob) return '';
-    const job = aiJob.toLowerCase().trim();
-    
-    // Try exact match first
-    for (const j of JOB_OPTIONS) {
-      if (j.toLowerCase() === job) return j;
-    }
-    
-    // Try partial match
-    for (const j of JOB_OPTIONS) {
-      const jLower = j.toLowerCase();
-      if (job.includes(jLower) || jLower.includes(job)) {
-        return j;
-      }
-    }
-    
-    // Try common variations
-    const mappings = {
-      'housemaid': 'Housemaid',
-      'house maid': 'Housemaid',
-      'driver': 'Driver',
-      'nurse': 'Nurse',
-      'cook': 'Cook',
-      'domestic worker': 'Domestic Worker',
-      'domestic': 'Domestic Worker',
-      'baby sitter': 'Baby Sitter',
-      'babysitter': 'Baby Sitter',
-      'teacher': 'Teacher'
-    };
-    
-    return mappings[job] || '';
   };
 
   const generateRef = () => {
@@ -200,21 +163,17 @@ function App() {
       const data = await response.json();
       console.log('AI Parsed Data:', data);
 
-      // Calculate age from parsed DOB
       let age = null;
       if (data.date_of_birth) {
         age = calculateAge(data.date_of_birth);
         setCalculatedAge(age);
       }
 
-      // Map worker type
-      const mappedWorkerType = mapWorkerType(data.worker_type);
-
-      // 🔥 NEW: Map country and job to dropdown options
+      // 🔥 Map AI values to dropdown values
       const mappedCountry = mapCountry(data.nationality);
       const mappedJob = mapJob(data.job_title);
+      const mappedWorkerType = mapWorkerType(data.worker_type);
 
-      // Auto-fill form
       setFormData({
         full_name: data.full_name || '',
         date_of_birth: data.date_of_birth || '',
@@ -258,7 +217,7 @@ function App() {
     }
   };
 
-  // ---------- Drag & Drop for CV ----------
+  // ---------- Drag & Drop ----------
   const onDrop = useCallback((acceptedFiles) => {
     const file = acceptedFiles[0];
     if (!file) return;
@@ -344,8 +303,8 @@ function App() {
           dob: formData.date_of_birth || null,
           age: formData.age ? parseInt(formData.age) : null,
           gender: formData.gender || null,
-          job: formData.job_title || null,
-          country: formData.nationality || null,
+          job: formData.job_title || null,   // ✅ Mapped job
+          country: formData.nationality || null, // ✅ Mapped country
           religion: formData.religion || null,
           salary: formData.salary ? parseInt(formData.salary) : null,
           experience: formData.years_experience || null,
@@ -371,7 +330,7 @@ function App() {
     }
   };
 
-  // ---------- Reset Form ----------
+  // ---------- Reset ----------
   const handleReset = () => {
     setFormData({
       full_name: '',
@@ -395,7 +354,7 @@ function App() {
     setCalculatedAge(null);
   };
 
-  // ---------- Dropzone config ----------
+  // ---------- Dropzone ----------
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
@@ -506,28 +465,24 @@ function App() {
 
           <form onSubmit={handleSubmit}>
             <div className="form-grid">
-              {/* Full Name */}
               <div className="form-group full-width">
                 <label>Full Name <span style={{ color: 'red' }}>*</span></label>
                 <input type="text" name="full_name" value={formData.full_name} onChange={handleInputChange} placeholder="Enter full name" required />
                 <small>Auto-filled, but you can edit</small>
               </div>
 
-              {/* Date of Birth */}
               <div className="form-group">
                 <label>Date of Birth</label>
                 <input type="date" name="date_of_birth" value={formData.date_of_birth} onChange={handleDobChange} />
                 <small>Auto-filled, but you can edit</small>
               </div>
 
-              {/* Age */}
               <div className="form-group">
                 <label>Age</label>
                 <input type="number" name="age" value={formData.age} readOnly className="readonly-field" />
                 {calculatedAge !== null && <small className="age-calc">✓ Calculated: {calculatedAge} years</small>}
               </div>
 
-              {/* Gender */}
               <div className="form-group">
                 <label>Gender</label>
                 <select name="gender" value={formData.gender} onChange={handleInputChange}>
@@ -538,7 +493,6 @@ function App() {
                 <small>Auto-filled, but you can edit</small>
               </div>
 
-              {/* Marital Status */}
               <div className="form-group">
                 <label>Marital Status</label>
                 <select name="marital_status" value={formData.marital_status} onChange={handleInputChange}>
@@ -551,49 +505,40 @@ function App() {
                 <small>Auto-filled, but you can edit</small>
               </div>
 
-              {/* 🔥 NATIONALITY - DROPDOWN */}
               <div className="form-group">
                 <label>Nationality</label>
                 <select name="nationality" value={formData.nationality} onChange={handleInputChange}>
-                  <option value="">Select Country</option>
-                  {COUNTRY_OPTIONS.map((country) => (
-                    <option key={country} value={country}>
-                      {country}
-                    </option>
+                  <option value="">Select</option>
+                  {COUNTRY_OPTIONS.map((c) => (
+                    <option key={c} value={c}>{c}</option>
                   ))}
                 </select>
-                <small>Select from the list</small>
+                <small>Auto-mapped, but you can edit</small>
               </div>
 
-              {/* Religion */}
               <div className="form-group">
                 <label>Religion</label>
                 <input type="text" name="religion" value={formData.religion} onChange={handleInputChange} placeholder="e.g., Buddhist" />
                 <small>Auto-filled, but you can edit</small>
               </div>
 
-              {/* 🔥 JOB TITLE - DROPDOWN */}
               <div className="form-group">
                 <label>Job Title</label>
                 <select name="job_title" value={formData.job_title} onChange={handleInputChange}>
-                  <option value="">Select Job</option>
-                  {JOB_OPTIONS.map((job) => (
-                    <option key={job} value={job}>
-                      {job}
-                    </option>
+                  <option value="">Select</option>
+                  {JOB_OPTIONS.map((j) => (
+                    <option key={j} value={j}>{j}</option>
                   ))}
                 </select>
-                <small>Select from the list</small>
+                <small>Auto-mapped, but you can edit</small>
               </div>
 
-              {/* Salary */}
               <div className="form-group">
                 <label>Salary (QR)</label>
                 <input type="number" name="salary" value={formData.salary} onChange={handleInputChange} placeholder="e.g., 1500" />
                 <small>Auto-filled, but you can edit</small>
               </div>
 
-              {/* Worker Type */}
               <div className="form-group">
                 <label>Worker Type</label>
                 <select name="worker_type" value={formData.worker_type} onChange={handleInputChange}>
@@ -604,7 +549,6 @@ function App() {
                 <small>Auto-mapped, but you can edit</small>
               </div>
 
-              {/* Years of Experience */}
               <div className="form-group full-width">
                 <label>Years of Experience</label>
                 <input type="number" name="years_experience" value={formData.years_experience} onChange={handleInputChange} placeholder="e.g., 0, 2, 5" min="0" max="50" step="1" />
