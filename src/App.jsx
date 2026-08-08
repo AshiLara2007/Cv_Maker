@@ -4,7 +4,7 @@ import { useDropzone } from 'react-dropzone';
 import { supabase } from './lib/supabaseClient';
 import './App.css';
 
-// ---------- Job Options (Dropdown) ----------
+// ---------- Job Options ----------
 const JOB_OPTIONS = [
   'Housemaid',
   'Driver',
@@ -15,7 +15,7 @@ const JOB_OPTIONS = [
   'Teacher'
 ];
 
-// ---------- Country Options (Dropdown) ----------
+// ---------- Country Options ----------
 const COUNTRY_OPTIONS = [
   'Indonesia',
   'Sri Lanka',
@@ -27,7 +27,7 @@ const COUNTRY_OPTIONS = [
   'Uganda'
 ];
 
-// 🔥 Hardcoded mapping for exact AI responses
+// ---------- Hardcoded Mapping ----------
 const hardcodedJobMap = {
   'HOUSEMAID': 'Housemaid',
   'DRIVER': 'Driver',
@@ -42,8 +42,8 @@ const hardcodedCountryMap = {
   'INDONESIA': 'Indonesia',
   'SRI LANKAN': 'Sri Lanka',
   'PHILIPPINES': 'Philippines',
-    'FILIPINO': 'Philippines',   
-  'FILIPINA': 'Philippines',   
+  'FILIPINO': 'Philippines',
+  'FILIPINA': 'Philippines',
   'BANGLADESH': 'Bangladesh',
   'INDIA': 'India',
   'ETHIOPIA': 'Ethiopia',
@@ -51,7 +51,73 @@ const hardcodedCountryMap = {
   'UGANDA': 'Uganda'
 };
 
+// 🔐 Password
+const SITE_PASSWORD = '1978';
+
 function App() {
+  // ---------- Password State ----------
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [password, setPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+
+  // Check if user already authenticated (session)
+  useEffect(() => {
+    const auth = localStorage.getItem('zod_auth');
+    if (auth === 'true') {
+      setIsAuthenticated(true);
+    }
+  }, []);
+
+  // ---------- Password Handler ----------
+  const handlePasswordSubmit = (e) => {
+    e.preventDefault();
+    if (password === SITE_PASSWORD) {
+      setIsAuthenticated(true);
+      localStorage.setItem('zod_auth', 'true');
+      setPasswordError('');
+    } else {
+      setPasswordError('❌ Invalid password. Please try again.');
+      setPassword('');
+    }
+  };
+
+  // ---------- If Not Authenticated, Show Password Screen ----------
+  if (!isAuthenticated) {
+    return (
+      <div className="password-container">
+        <div className="password-box">
+          <div className="password-logo-wrapper">
+            <img
+              src="https://www.zodmanpower.info/logo/logo.jpeg"
+              alt="ZOD Manpower Logo"
+              className="password-logo"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+          </div>
+          <h1>ZOD <span>MANPOWER</span></h1>
+          <p className="password-subtitle">RECRUITMENT · CV UPLOAD SYSTEM</p>
+          <div className="password-lock-icon">🔐</div>
+          <h2>Enter Password</h2>
+          <p className="password-desc">This site is protected. Please enter the password to continue.</p>
+          <form onSubmit={handlePasswordSubmit} className="password-form">
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter password..."
+              className="password-input"
+              autoFocus
+            />
+            {passwordError && <p className="password-error">{passwordError}</p>}
+            <button type="submit" className="password-btn">Unlock</button>
+          </form>
+          <p className="password-footer">© 2026 ZOD Manpower Recruitment</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ---------- Main App (Only visible after authentication) ----------
   // ---------- State Variables ----------
   const [cvFile, setCvFile] = useState(null);
   const [profilePhotoFile, setProfilePhotoFile] = useState(null);
@@ -80,7 +146,6 @@ function App() {
   });
 
   // ---------- Helper Functions ----------
-
   const calculateAge = (dob) => {
     if (!dob) return null;
     const birthDate = new Date(dob);
@@ -93,14 +158,12 @@ function App() {
     return age;
   };
 
-  // 🔥 Map Job with hardcoded values
   const mapJob = (aiJob) => {
     if (!aiJob) return '';
     const upper = aiJob.toUpperCase().trim();
     if (hardcodedJobMap[upper]) {
       return hardcodedJobMap[upper];
     }
-    // Fallback
     const normalized = aiJob.trim().toLowerCase();
     for (const job of JOB_OPTIONS) {
       if (job.toLowerCase() === normalized || normalized.includes(job.toLowerCase())) {
@@ -110,14 +173,12 @@ function App() {
     return '';
   };
 
-  // 🔥 Map Country with hardcoded values
   const mapCountry = (aiCountry) => {
     if (!aiCountry) return '';
     const upper = aiCountry.toUpperCase().trim();
     if (hardcodedCountryMap[upper]) {
       return hardcodedCountryMap[upper];
     }
-    // Fallback
     const normalized = aiCountry.trim().toLowerCase();
     for (const country of COUNTRY_OPTIONS) {
       if (country.toLowerCase() === normalized || normalized.includes(country.toLowerCase())) {
@@ -197,7 +258,6 @@ function App() {
         setCalculatedAge(age);
       }
 
-      // 🔥 Map AI values
       const mappedJob = mapJob(data.job_title);
       const mappedCountry = mapCountry(data.nationality);
       const mappedWorkerType = mapWorkerType(data.worker_type);
@@ -205,22 +265,20 @@ function App() {
       console.log('✅ Mapped Job:', mappedJob);
       console.log('✅ Mapped Country:', mappedCountry);
 
-      // 🔥 Set form data - ensure job and country are not empty
       setFormData({
         full_name: data.full_name || '',
         date_of_birth: data.date_of_birth || '',
         age: age !== null ? age.toString() : '',
         gender: data.gender || '',
         marital_status: data.marital_status || '',
-        job_title: mappedJob || JOB_OPTIONS[0], // 🔥 Fallback to first job
-        nationality: mappedCountry || COUNTRY_OPTIONS[0], // 🔥 Fallback to first country
+        job_title: mappedJob || JOB_OPTIONS[0],
+        nationality: mappedCountry || COUNTRY_OPTIONS[0],
         religion: data.religion || '',
         salary: data.salary?.toString() || '',
         years_experience: data.years_experience?.toString() || '',
         worker_type: mappedWorkerType || 'Recruitment Workers'
       });
 
-      // Auto-extract photo from Base64
       if (data.photo_base64) {
         try {
           const byteCharacters = atob(data.photo_base64);
@@ -288,7 +346,6 @@ function App() {
       let cvUrl = null;
       let photoUrl = null;
 
-      // 1. Upload CV
       if (cvFile) {
         const fileExt = cvFile.name.split('.').pop();
         const fileName = `${Date.now()}_cv.${fileExt}`;
@@ -306,7 +363,6 @@ function App() {
         cvUrl = urlData.publicUrl;
       }
 
-      // 2. Upload Photo
       if (profilePhotoFile) {
         const fileExt = profilePhotoFile.name.split('.').pop();
         const fileName = `${Date.now()}_photo.${fileExt}`;
@@ -324,7 +380,6 @@ function App() {
         photoUrl = urlData.publicUrl;
       }
 
-      // 3. Insert into 'talents' table
       const ref = generateRef();
 
       console.log('📤 Submitting:', {
@@ -402,7 +457,13 @@ function App() {
     maxSize: 5242880
   });
 
-  // ---------- Render ----------
+  // ---------- Logout Function ----------
+  const handleLogout = () => {
+    localStorage.removeItem('zod_auth');
+    setIsAuthenticated(false);
+  };
+
+  // ---------- Render Main App ----------
   return (
     <div className="app-container">
       <header className="app-header">
@@ -419,7 +480,12 @@ function App() {
               <p className="subtitle">RECRUITMENT · CV UPLOAD SYSTEM</p>
             </div>
           </div>
-          <div className="badge">🚀 AI-Powered CV Parsing</div>
+          <div className="header-right">
+            <div className="badge">🚀 AI-Powered CV Parsing</div>
+            <button onClick={handleLogout} className="btn-logout">
+              🔒 Logout
+            </button>
+          </div>
         </div>
       </header>
 
@@ -612,7 +678,7 @@ function App() {
         </section>
 
         <footer className="app-footer">
-          <p>© 2026 ZOD Manpower Recruitment · Powered by AI & Supabase</p>
+          <p>© 2026 ZOD Manpower Recruitment · Developed by Lara Williams</p>
         </footer>
       </main>
     </div>

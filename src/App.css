@@ -54,7 +54,7 @@ body {
   flex-direction: column;
 }
 
-/* ---------- Header Styles (with Logo) ---------- */
+/* ---------- Header Styles ---------- */
 .app-header {
   background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
   padding: 16px 24px;
@@ -132,6 +132,31 @@ body {
 @keyframes pulse-badge {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.8; transform: scale(0.97); }
+}
+
+/* ---------- Header Right (Logout Button) ---------- */
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn-logout {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-logout:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.05);
 }
 
 /* ---------- Main Content ---------- */
@@ -567,6 +592,132 @@ body {
   color: var(--gray-400);
 }
 
+/* ---------- Password Screen Styles ---------- */
+.password-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #002F66 0%, #0040aa 50%, #002F66 100%);
+  padding: 20px;
+}
+
+.password-box {
+  background: white;
+  border-radius: 30px;
+  padding: 48px 40px 36px;
+  max-width: 440px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+  animation: fadeInUp 0.6s ease;
+}
+
+.password-box h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: #002F66;
+  margin: 4px 0 2px;
+}
+
+.password-box h1 span {
+  color: #f4b41a;
+}
+
+.password-logo-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.password-logo {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #f4b41a;
+  box-shadow: 0 4px 15px rgba(0, 47, 102, 0.3);
+}
+
+.password-subtitle {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: #666;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+
+.password-lock-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.password-box h2 {
+  font-size: 22px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 6px;
+}
+
+.password-desc {
+  font-size: 14px;
+  color: #64748b;
+  margin-bottom: 24px;
+}
+
+.password-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.password-input {
+  padding: 14px 18px;
+  font-size: 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  outline: none;
+  transition: border-color 0.3s;
+  text-align: center;
+  letter-spacing: 4px;
+}
+
+.password-input:focus {
+  border-color: #002F66;
+  box-shadow: 0 0 0 3px rgba(0, 47, 102, 0.1);
+}
+
+.password-error {
+  color: #ef4444;
+  font-size: 13px;
+  font-weight: 500;
+  margin: 0;
+}
+
+.password-btn {
+  padding: 14px;
+  background: linear-gradient(135deg, #002F66, #0040aa);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 47, 102, 0.3);
+}
+
+.password-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 47, 102, 0.4);
+}
+
+.password-footer {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 20px;
+}
+
 /* ---------- Responsive Design ---------- */
 /* Tablets and smaller laptops */
 @media (max-width: 1024px) {
@@ -605,6 +756,12 @@ body {
   .badge {
     font-size: 12px;
     padding: 4px 16px;
+  }
+
+  .header-right {
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
   }
 
   .form-section {
@@ -653,6 +810,17 @@ body {
 
   .header-content h1 {
     font-size: 20px;
+  }
+
+  .password-box {
+    padding: 32px 24px 28px;
+  }
+  .password-box h1 {
+    font-size: 22px;
+  }
+  .password-logo {
+    width: 64px;
+    height: 64px;
   }
 }
 
