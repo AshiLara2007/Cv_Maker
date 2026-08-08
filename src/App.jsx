@@ -1,5 +1,5 @@
 // src/App.jsx
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { supabase } from './lib/supabaseClient';
 import './App.css';
@@ -91,47 +91,37 @@ function App() {
     return age;
   };
 
-  // 🔥 Improved Job Mapping with hardcoded values
+  // 🔥 Map Job with hardcoded values
   const mapJob = (aiJob) => {
     if (!aiJob) return '';
-    // Check hardcoded map first (case-insensitive)
     const upper = aiJob.toUpperCase().trim();
     if (hardcodedJobMap[upper]) {
       return hardcodedJobMap[upper];
     }
-    // Fallback to normal mapping
+    // Fallback
     const normalized = aiJob.trim().toLowerCase();
     for (const job of JOB_OPTIONS) {
-      if (job.toLowerCase() === normalized) {
-        return job;
-      }
-      if (normalized.includes(job.toLowerCase()) || job.toLowerCase().includes(normalized)) {
+      if (job.toLowerCase() === normalized || normalized.includes(job.toLowerCase())) {
         return job;
       }
     }
-    console.warn('⚠️ Job not mapped:', aiJob);
     return '';
   };
 
-  // 🔥 Improved Country Mapping with hardcoded values
+  // 🔥 Map Country with hardcoded values
   const mapCountry = (aiCountry) => {
     if (!aiCountry) return '';
-    // Check hardcoded map first (case-insensitive)
     const upper = aiCountry.toUpperCase().trim();
     if (hardcodedCountryMap[upper]) {
       return hardcodedCountryMap[upper];
     }
-    // Fallback to normal mapping
+    // Fallback
     const normalized = aiCountry.trim().toLowerCase();
     for (const country of COUNTRY_OPTIONS) {
-      if (country.toLowerCase() === normalized) {
-        return country;
-      }
-      if (normalized.includes(country.toLowerCase()) || country.toLowerCase().includes(normalized)) {
+      if (country.toLowerCase() === normalized || normalized.includes(country.toLowerCase())) {
         return country;
       }
     }
-    console.warn('⚠️ Country not mapped:', aiCountry);
     return '';
   };
 
@@ -197,7 +187,7 @@ function App() {
       }
 
       const data = await response.json();
-      console.log('AI Parsed Data:', data);
+      console.log('📥 AI Parsed Data:', data);
 
       let age = null;
       if (data.date_of_birth) {
@@ -205,7 +195,7 @@ function App() {
         setCalculatedAge(age);
       }
 
-      // 🔥 Map AI values to dropdown values
+      // 🔥 Map AI values
       const mappedJob = mapJob(data.job_title);
       const mappedCountry = mapCountry(data.nationality);
       const mappedWorkerType = mapWorkerType(data.worker_type);
@@ -213,21 +203,22 @@ function App() {
       console.log('✅ Mapped Job:', mappedJob);
       console.log('✅ Mapped Country:', mappedCountry);
 
+      // 🔥 Set form data - ensure job and country are not empty
       setFormData({
         full_name: data.full_name || '',
         date_of_birth: data.date_of_birth || '',
         age: age !== null ? age.toString() : '',
         gender: data.gender || '',
         marital_status: data.marital_status || '',
-        job_title: mappedJob,
-        nationality: mappedCountry,
+        job_title: mappedJob || JOB_OPTIONS[0], // 🔥 Fallback to first job
+        nationality: mappedCountry || COUNTRY_OPTIONS[0], // 🔥 Fallback to first country
         religion: data.religion || '',
         salary: data.salary?.toString() || '',
         years_experience: data.years_experience?.toString() || '',
-        worker_type: mappedWorkerType
+        worker_type: mappedWorkerType || 'Recruitment Workers'
       });
 
-      // Auto-extract photo from Base64 (if available)
+      // Auto-extract photo from Base64
       if (data.photo_base64) {
         try {
           const byteCharacters = atob(data.photo_base64);
@@ -335,9 +326,9 @@ function App() {
       const ref = generateRef();
 
       console.log('📤 Submitting:', {
+        name: formData.full_name,
         job: formData.job_title,
-        country: formData.nationality,
-        name: formData.full_name
+        country: formData.nationality
       });
 
       const { error: insertError } = await supabase
