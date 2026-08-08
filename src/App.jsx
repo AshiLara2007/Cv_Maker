@@ -42,6 +42,8 @@ const hardcodedCountryMap = {
   'INDONESIA': 'Indonesia',
   'SRI LANKAN': 'Sri Lanka',
   'PHILIPPINES': 'Philippines',
+    'FILIPINO': 'Philippines',   
+  'FILIPINA': 'Philippines',   
   'BANGLADESH': 'Bangladesh',
   'INDIA': 'India',
   'ETHIOPIA': 'Ethiopia',
