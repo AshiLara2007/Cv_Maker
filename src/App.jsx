@@ -4,7 +4,7 @@ import { useDropzone } from 'react-dropzone';
 import { supabase } from './lib/supabaseClient';
 import './App.css';
 
-// ---------- Job Options ----------
+// ---------- Job Options (Dropdown) ----------
 const JOB_OPTIONS = [
   'Housemaid',
   'Driver',
@@ -15,7 +15,7 @@ const JOB_OPTIONS = [
   'Teacher'
 ];
 
-// ---------- Country Options ----------
+// ---------- Country Options (Dropdown) ----------
 const COUNTRY_OPTIONS = [
   'Indonesia',
   'Sri Lanka',
@@ -27,7 +27,7 @@ const COUNTRY_OPTIONS = [
   'Uganda'
 ];
 
-// ---------- Hardcoded Mapping ----------
+// ---------- Hardcoded Mapping for AI Responses ----------
 const hardcodedJobMap = {
   'HOUSEMAID': 'Housemaid',
   'DRIVER': 'Driver',
@@ -51,7 +51,7 @@ const hardcodedCountryMap = {
   'UGANDA': 'Uganda'
 };
 
-// 🔐 Password
+// ---------- Password ----------
 const SITE_PASSWORD = '1978';
 
 function App() {
@@ -59,66 +59,9 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Check if user already authenticated (session)
-  useEffect(() => {
-    const auth = localStorage.getItem('zod_auth');
-    if (auth === 'true') {
-      setIsAuthenticated(true);
-    }
-  }, []);
-
-  // ---------- Password Handler ----------
-  const handlePasswordSubmit = (e) => {
-    e.preventDefault();
-    if (password === SITE_PASSWORD) {
-      setIsAuthenticated(true);
-      localStorage.setItem('zod_auth', 'true');
-      setPasswordError('');
-    } else {
-      setPasswordError('❌ Invalid password. Please try again.');
-      setPassword('');
-    }
-  };
-
-  // ---------- If Not Authenticated, Show Password Screen ----------
-  if (!isAuthenticated) {
-    return (
-      <div className="password-container">
-        <div className="password-box">
-          <div className="password-logo-wrapper">
-            <img
-              src="https://www.zodmanpower.info/logo/logo.jpeg"
-              alt="ZOD Manpower Logo"
-              className="password-logo"
-              onError={(e) => { e.target.style.display = 'none'; }}
-            />
-          </div>
-          <h1>ZOD <span>MANPOWER</span></h1>
-          <p className="password-subtitle">RECRUITMENT · CV UPLOAD SYSTEM</p>
-          <div className="password-lock-icon">🔐</div>
-          <h2>Enter Password</h2>
-          <p className="password-desc">This site is protected. Please enter the password to continue.</p>
-          <form onSubmit={handlePasswordSubmit} className="password-form">
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter password..."
-              className="password-input"
-              autoFocus
-            />
-            {passwordError && <p className="password-error">{passwordError}</p>}
-            <button type="submit" className="password-btn">Unlock</button>
-          </form>
-          <p className="password-footer">© 2026 ZOD Manpower Recruitment</p>
-        </div>
-      </div>
-    );
-  }
-
-  // ---------- Main App (Only visible after authentication) ----------
-  // ---------- State Variables ----------
+  // ---------- Main App State ----------
   const [cvFile, setCvFile] = useState(null);
   const [profilePhotoFile, setProfilePhotoFile] = useState(null);
   const [profilePhotoPreview, setProfilePhotoPreview] = useState(null);
@@ -144,6 +87,43 @@ function App() {
     years_experience: '',
     worker_type: ''
   });
+
+  // ---------- Check Authentication on Load ----------
+  useEffect(() => {
+    try {
+      const auth = localStorage.getItem('zod_auth');
+      if (auth === 'true') {
+        setIsAuthenticated(true);
+      }
+    } catch (err) {
+      console.log('Auth check error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // ---------- Password Handler ----------
+  const handlePasswordSubmit = (e) => {
+    e.preventDefault();
+    try {
+      if (password === SITE_PASSWORD) {
+        setIsAuthenticated(true);
+        localStorage.setItem('zod_auth', 'true');
+        setPasswordError('');
+      } else {
+        setPasswordError('❌ Invalid password. Please try again.');
+        setPassword('');
+      }
+    } catch (err) {
+      setPasswordError('❌ An error occurred. Please try again.');
+    }
+  };
+
+  // ---------- Logout Function ----------
+  const handleLogout = () => {
+    localStorage.removeItem('zod_auth');
+    setIsAuthenticated(false);
+  };
 
   // ---------- Helper Functions ----------
   const calculateAge = (dob) => {
@@ -382,12 +362,6 @@ function App() {
 
       const ref = generateRef();
 
-      console.log('📤 Submitting:', {
-        name: formData.full_name,
-        job: formData.job_title,
-        country: formData.nationality
-      });
-
       const { error: insertError } = await supabase
         .from('talents')
         .insert([{
@@ -457,13 +431,67 @@ function App() {
     maxSize: 5242880
   });
 
-  // ---------- Logout Function ----------
-  const handleLogout = () => {
-    localStorage.removeItem('zod_auth');
-    setIsAuthenticated(false);
-  };
+  // ---------- Loading Screen ----------
+  if (isLoading) {
+    return (
+      <div className="password-container">
+        <div className="password-box">
+          <div className="password-logo-wrapper">
+            <img
+              src="https://www.zodmanpower.info/logo/logo.jpeg"
+              alt="ZOD Manpower Logo"
+              className="password-logo"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+          </div>
+          <h1>ZOD <span>MANPOWER</span></h1>
+          <p className="password-subtitle">RECRUITMENT · CV UPLOAD SYSTEM</p>
+          <div className="loading-spinner" style={{ margin: '30px 0' }}>
+            <div className="spinner" style={{ width: '40px', height: '40px', margin: '0 auto' }}></div>
+            <p style={{ marginTop: '12px', color: '#64748b' }}>Loading...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  // ---------- Render Main App ----------
+  // ---------- Password Screen ----------
+  if (!isAuthenticated) {
+    return (
+      <div className="password-container">
+        <div className="password-box">
+          <div className="password-logo-wrapper">
+            <img
+              src="https://www.zodmanpower.info/logo/logo.jpeg"
+              alt="ZOD Manpower Logo"
+              className="password-logo"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+          </div>
+          <h1>ZOD <span>MANPOWER</span></h1>
+          <p className="password-subtitle">RECRUITMENT · CV UPLOAD SYSTEM</p>
+          <div className="password-lock-icon">🔐</div>
+          <h2>Enter Password</h2>
+          <p className="password-desc">This site is protected. Please enter the password to continue.</p>
+          <form onSubmit={handlePasswordSubmit} className="password-form">
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter password..."
+              className="password-input"
+              autoFocus
+            />
+            {passwordError && <p className="password-error">{passwordError}</p>}
+            <button type="submit" className="password-btn">Unlock</button>
+          </form>
+          <p className="password-footer">© 2026 ZOD Manpower Recruitment</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ---------- Main App Render ----------
   return (
     <div className="app-container">
       <header className="app-header">
@@ -678,7 +706,7 @@ function App() {
         </section>
 
         <footer className="app-footer">
-          <p>© 2026 ZOD Manpower Recruitment · Developed by Lara Williams</p>
+          <p>© 2026 ZOD Manpower Recruitment · Powered by AI & Supabase</p>
         </footer>
       </main>
     </div>
