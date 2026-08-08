@@ -27,6 +27,28 @@ const COUNTRY_OPTIONS = [
   'Uganda'
 ];
 
+// 🔥 Hardcoded mapping for exact AI responses
+const hardcodedJobMap = {
+  'HOUSEMAID': 'Housemaid',
+  'DRIVER': 'Driver',
+  'NURSE': 'Nurse',
+  'COOK': 'Cook',
+  'DOMESTIC WORKER': 'Domestic Worker',
+  'BABY SITTER': 'Baby Sitter',
+  'TEACHER': 'Teacher'
+};
+
+const hardcodedCountryMap = {
+  'INDONESIA': 'Indonesia',
+  'SRI LANKAN': 'Sri Lanka',
+  'PHILIPPINES': 'Philippines',
+  'BANGLADESH': 'Bangladesh',
+  'INDIA': 'India',
+  'ETHIOPIA': 'Ethiopia',
+  'KENYA': 'Kenya',
+  'UGANDA': 'Uganda'
+};
+
 function App() {
   // ---------- State Variables ----------
   const [cvFile, setCvFile] = useState(null);
@@ -69,24 +91,15 @@ function App() {
     return age;
   };
 
-  // 🔥 Map AI country to dropdown value
-  const mapCountry = (aiCountry) => {
-    if (!aiCountry) return '';
-    const normalized = aiCountry.trim().toLowerCase();
-    for (const country of COUNTRY_OPTIONS) {
-      if (country.toLowerCase() === normalized) {
-        return country;
-      }
-      if (normalized.includes(country.toLowerCase()) || country.toLowerCase().includes(normalized)) {
-        return country;
-      }
-    }
-    return '';
-  };
-
-  // 🔥 Map AI job to dropdown value
+  // 🔥 Improved Job Mapping with hardcoded values
   const mapJob = (aiJob) => {
     if (!aiJob) return '';
+    // Check hardcoded map first (case-insensitive)
+    const upper = aiJob.toUpperCase().trim();
+    if (hardcodedJobMap[upper]) {
+      return hardcodedJobMap[upper];
+    }
+    // Fallback to normal mapping
     const normalized = aiJob.trim().toLowerCase();
     for (const job of JOB_OPTIONS) {
       if (job.toLowerCase() === normalized) {
@@ -96,6 +109,29 @@ function App() {
         return job;
       }
     }
+    console.warn('⚠️ Job not mapped:', aiJob);
+    return '';
+  };
+
+  // 🔥 Improved Country Mapping with hardcoded values
+  const mapCountry = (aiCountry) => {
+    if (!aiCountry) return '';
+    // Check hardcoded map first (case-insensitive)
+    const upper = aiCountry.toUpperCase().trim();
+    if (hardcodedCountryMap[upper]) {
+      return hardcodedCountryMap[upper];
+    }
+    // Fallback to normal mapping
+    const normalized = aiCountry.trim().toLowerCase();
+    for (const country of COUNTRY_OPTIONS) {
+      if (country.toLowerCase() === normalized) {
+        return country;
+      }
+      if (normalized.includes(country.toLowerCase()) || country.toLowerCase().includes(normalized)) {
+        return country;
+      }
+    }
+    console.warn('⚠️ Country not mapped:', aiCountry);
     return '';
   };
 
@@ -170,9 +206,12 @@ function App() {
       }
 
       // 🔥 Map AI values to dropdown values
-      const mappedCountry = mapCountry(data.nationality);
       const mappedJob = mapJob(data.job_title);
+      const mappedCountry = mapCountry(data.nationality);
       const mappedWorkerType = mapWorkerType(data.worker_type);
+
+      console.log('✅ Mapped Job:', mappedJob);
+      console.log('✅ Mapped Country:', mappedCountry);
 
       setFormData({
         full_name: data.full_name || '',
@@ -295,6 +334,12 @@ function App() {
       // 3. Insert into 'talents' table
       const ref = generateRef();
 
+      console.log('📤 Submitting:', {
+        job: formData.job_title,
+        country: formData.nationality,
+        name: formData.full_name
+      });
+
       const { error: insertError } = await supabase
         .from('talents')
         .insert([{
@@ -303,8 +348,8 @@ function App() {
           dob: formData.date_of_birth || null,
           age: formData.age ? parseInt(formData.age) : null,
           gender: formData.gender || null,
-          job: formData.job_title || null,   // ✅ Mapped job
-          country: formData.nationality || null, // ✅ Mapped country
+          job: formData.job_title || null,
+          country: formData.nationality || null,
           religion: formData.religion || null,
           salary: formData.salary ? parseInt(formData.salary) : null,
           experience: formData.years_experience || null,
