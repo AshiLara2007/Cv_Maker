@@ -1,29 +1,43 @@
 import os
 import json
 import re
+import base64
+import numpy as np
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
+# Optional OpenCV import with fallback
+try:
+    import cv2
+    OPENCV_AVAILABLE = True
+except ImportError:
+    OPENCV_AVAILABLE = False
+    cv2 = None
+
 load_dotenv()
 
 app = FastAPI()
 
+# CORS Configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Gemini Configuration
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if not GEMINI_API_KEY:
     raise ValueError("GEMINI_API_KEY not found in .env file")
 
 client = genai.Client(api_key=GEMINI_API_KEY)
+
+# ---------- Helper Functions ----------
 
 def clean_json_response(text):
     match = re.search(r'```(?:json)?\s*(\{.*\})\s*```', text, re.DOTALL)
@@ -45,10 +59,11 @@ def get_mime_type(filename: str) -> str:
     }
     return mime_map.get(ext, 'image/jpeg')
 
-# 🔥 Face detection completely disabled
 def extract_face_base64(image_bytes: bytes) -> str | None:
     """Face detection disabled - always returns None."""
     return None
+
+# ---------- API Endpoints ----------
 
 @app.post("/parse-cv")
 async def parse_cv(file: UploadFile = File(...)):
@@ -59,8 +74,8 @@ async def parse_cv(file: UploadFile = File(...)):
 
         mime_type = get_mime_type(file.filename)
 
-        # Always None
-        photo_base64 = extract_face_base64(contents)
+        # Face detection disabled
+        photo_base64 = None
 
         prompt = """
         You are an expert CV parser. Analyze this CV image carefully.
@@ -86,9 +101,8 @@ async def parse_cv(file: UploadFile = File(...)):
 
         image_part = types.Part.from_bytes(data=contents, mime_type=mime_type)
 
-        # Model priority (gemini-1.5-flash included for better quota)
+        # 🔥 Models list (tries in order, falls back to working one)
         model_names = [
-            'models/gemini-1.5-flash',
             'models/gemini-3.5-flash',
             'models/gemini-2.0-flash',
             'models/gemini-flash-latest'
@@ -107,7 +121,7 @@ async def parse_cv(file: UploadFile = File(...)):
                 break
             except Exception as e:
                 last_error = e
-                print(f"❌ Failed with {model_name}: {str(e)}")
+                # Silently continue to next model (no error logs)
                 continue
 
         if response is None:
@@ -119,7 +133,7 @@ async def parse_cv(file: UploadFile = File(...)):
         cleaned = clean_json_response(response.text)
         parsed = json.loads(cleaned)
 
-        # photo_base64 is always None
+        # Append extracted photo to response (always None)
         parsed['photo_base64'] = photo_base64
 
         return parsed
@@ -134,13 +148,16 @@ async def parse_cv(file: UploadFile = File(...)):
 
 @app.get("/")
 async def root():
-    return {"message": "CV Parser API running (face detection disabled)"}
+    return {"message": "CV Parser API running successfully!"}
 
 @app.get("/list-models")
 async def list_models():
     try:
         models = client.models.list()
-        available = [m.name for m in models if 'generateContent' in m.supported_generation_methods]
+        available = [
+            m.name for m in models
+            if 'generateContent' in m.supported_generation_methods
+        ]
         return {"available": available}
     except Exception as e:
         return {"error": str(e)}
