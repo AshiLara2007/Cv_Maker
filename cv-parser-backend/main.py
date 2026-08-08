@@ -1,7 +1,7 @@
 import os
 import json
 import re
-import base64
+import time
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -61,9 +61,6 @@ async def parse_cv(file: UploadFile = File(...)):
 
         mime_type = get_mime_type(file.filename)
 
-        # Face detection disabled
-        photo_base64 = None
-
         prompt = """
         You are an expert CV parser. Analyze this CV image carefully.
         The CV is in a tabular format. Extract these fields as JSON.
@@ -88,38 +85,57 @@ async def parse_cv(file: UploadFile = File(...)):
 
         image_part = types.Part.from_bytes(data=contents, mime_type=mime_type)
 
-        # Models list (tries in order, falls back to working one)
+        # Models list
         model_names = [
+            'models/gemini-2.5-flash',
             'models/gemini-3.5-flash',
             'models/gemini-2.0-flash',
             'models/gemini-flash-latest'
         ]
 
-        response = None
-        last_error = None
+        # 🔥 Retry logic
+        max_retries = 3
+        retry_delay = 5  # seconds
 
-        for model_name in model_names:
-            try:
-                response = client.models.generate_content(
-                    model=model_name,
-                    contents=[prompt, image_part]
-                )
-                print(f"✅ Successfully used model: {model_name}")
-                break
-            except Exception as e:
-                last_error = e
-                continue
+        for attempt in range(max_retries):
+            response = None
+            last_error = None
+
+            for model_name in model_names:
+                try:
+                    response = client.models.generate_content(
+                        model=model_name,
+                        contents=[prompt, image_part]
+                    )
+                    print(f"✅ Successfully used model: {model_name}")
+                    break
+                except Exception as e:
+                    last_error = e
+                    # If it's a 503 (unavailable), wait and retry
+                    if '503' in str(e) or 'UNAVAILABLE' in str(e):
+                        print(f"⚠️ Model {model_name} unavailable (attempt {attempt + 1}/{max_retries})")
+                        continue
+                    # Otherwise try next model
+                    continue
+
+            if response is not None:
+                break  # Success
+
+            # If we got here, all models failed for this attempt
+            if attempt < max_retries - 1:
+                print(f"🔄 Retrying in {retry_delay} seconds... (attempt {attempt + 1}/{max_retries})")
+                time.sleep(retry_delay)
 
         if response is None:
             raise HTTPException(
-                status_code=500,
-                detail=f"All models failed. Last error: {str(last_error)}"
+                status_code=503,
+                detail="All models are currently unavailable. Please try again in a few minutes."
             )
 
         cleaned = clean_json_response(response.text)
         parsed = json.loads(cleaned)
 
-        parsed['photo_base64'] = photo_base64
+        parsed['photo_base64'] = None
 
         return parsed
 
@@ -133,7 +149,7 @@ async def parse_cv(file: UploadFile = File(...)):
 
 @app.get("/")
 async def root():
-    return {"message": "CV Parser API running successfully!"}
+    return {"message": "CV Parser API running with retry logic!"}
 
 @app.get("/list-models")
 async def list_models():
