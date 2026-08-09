@@ -35,6 +35,8 @@ const hardcodedJobMap = {
   'COOK': 'Cook',
   'DOMESTIC WORKER': 'Domestic Worker',
   'BABY SITTER': 'Baby Sitter',
+  'NANNY': 'Baby Sitter',      // 🆕 Add NANNY
+  'NANNIE': 'Baby Sitter',     // 🆕 Add NANNIE
   'TEACHER': 'Teacher'
 };
 
